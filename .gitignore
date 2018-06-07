@@ -2,4 +2,5 @@
 .project
 bin/
 dist/
+out/
 log
