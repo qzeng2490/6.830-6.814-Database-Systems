@@ -22,8 +22,16 @@ public class Catalog {
      * Constructor.
      * Creates a new, empty catalog.
      */
+    Map<Integer,DbFile> tableidToDb;
+    Map<String,Integer> tablenameTotableid;
+    Map<Integer,String> tableidToPkey;
+    Map<Integer,String> tableidToName;
     public Catalog() {
         // some code goes here
+        tableidToDb = new HashMap<>();
+        tablenameTotableid = new HashMap<>();
+        tableidToPkey = new HashMap<>();
+        tableidToName = new HashMap<>();
     }
 
     /**
@@ -37,6 +45,10 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        tableidToDb.put(file.getId(),file);
+        tableidToPkey.put(file.getId(),pkeyField);
+        tablenameTotableid.put(name,file.getId());
+        tableidToName.put(file.getId(),name);
     }
 
     public void addTable(DbFile file, String name) {
@@ -60,7 +72,10 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        if(!this.tablenameTotableid.containsKey(name)) {
+            throw new NoSuchElementException();
+        }
+        return this.tablenameTotableid.get(name);
     }
 
     /**
@@ -71,7 +86,10 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if (!tableidToDb.containsKey(tableid)) {
+            throw new NoSuchElementException();
+        }
+        return tableidToDb.get(tableid).getTupleDesc();
     }
 
     /**
@@ -82,27 +100,35 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        if (!tableidToDb.containsKey(tableid)) {
+            throw new NoSuchElementException();
+        }
+        return tableidToDb.get(tableid);
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+
+        return tableidToPkey.get(tableid);
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        return tableidToPkey.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        return tableidToName.get(id);
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        tableidToPkey.clear();
+        tableidToDb.clear();
+        tablenameTotableid.clear();
+        tableidToName.clear();
     }
     
     /**

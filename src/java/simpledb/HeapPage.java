@@ -67,8 +67,11 @@ public class HeapPage implements Page {
     */
     private int getNumTuples() {        
         // some code goes here
-        return 0;
-
+        int nrecbytes = 0;
+        for (int i = 0; i < this.td.numFields() ; i++) {
+            nrecbytes += this.td.getFieldType(i).getLen();
+        }
+        return (BufferPool.getPageSize()*8) / (nrecbytes * 8 + 1);
     }
 
     /**
@@ -76,10 +79,11 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {        
-        
         // some code goes here
-        return 0;
-                 
+        int nheaderbytes = (getNumTuples() / 8);
+        if (nheaderbytes * 8 < getNumTuples())
+            nheaderbytes++;  //ceiling
+        return nheaderbytes;
     }
     
     /** Return a view of this page before it was modified
@@ -112,7 +116,7 @@ public class HeapPage implements Page {
      */
     public HeapPageId getId() {
     // some code goes here
-    throw new UnsupportedOperationException("implement this");
+        return this.pid;
     }
 
     /**
@@ -282,7 +286,16 @@ public class HeapPage implements Page {
      */
     public int getNumEmptySlots() {
         // some code goes here
-        return 0;
+        int cnt = 0;
+        for (int i=0;i< this.header.length;i++) {
+            byte b = this.header[i];
+            for (int j=0;j<8;j++) {
+                if( (b & (1<<j)) != 0) {
+                    cnt++;
+                }
+            }
+        }
+        return getNumTuples() - cnt;
     }
 
     /**
@@ -290,7 +303,8 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
         // some code goes here
-        return false;
+        int v = 1<<(i%8);
+        return (this.header[i/8]&v) != 0;
     }
 
     /**
@@ -307,7 +321,7 @@ public class HeapPage implements Page {
      */
     public Iterator<Tuple> iterator() {
         // some code goes here
-        return null;
+        return Arrays.stream(this.tuples).filter(t -> t != null).iterator();
     }
 
 }
