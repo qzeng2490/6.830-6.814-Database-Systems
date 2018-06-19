@@ -76,11 +76,15 @@ public class HeapFile implements DbFile {
                 return null;
             }
             int len = (int)Math.min(BufferPool.getPageSize(),file.length()-pid.getPageNumber() * BufferPool.getPageSize());
-            raf.read(bytes,pid.getPageNumber() * BufferPool.getPageSize(),len);
+            raf.seek(pid.getPageNumber() * BufferPool.getPageSize());
+            raf.read(bytes,0,len);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (IndexOutOfBoundsException e) {
+            System.out.println("pid.getPageNumber(): "+pid.getPageNumber() );
+            System.out.println("file.length(): "+file.length() );
         }
         Page p = null;
         try {
@@ -155,7 +159,7 @@ public class HeapFile implements DbFile {
                 HeapPage p =(HeapPage) Database.getBufferPool().getPage(transactionId,heapPageId,Permissions.READ_ONLY);
                 if (p != null) {
                     tupleIterator = p.iterator();
-                    tuple =tupleIterator.hasNext() ?null: tupleIterator.next();
+                    tuple =tupleIterator.hasNext() ?tupleIterator.next(): null;
                 }
             }
             return tuple;
@@ -172,7 +176,8 @@ public class HeapFile implements DbFile {
 
         @Override
         public void rewind() throws DbException, TransactionAbortedException {
-
+            this.pageNo = 0;
+            open();
         }
     }
 
