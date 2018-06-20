@@ -70,7 +70,7 @@ public class AggregateTest extends SimpleDbTestBase {
         return results;
     }
 
-    private final static int ROWS = 1024;
+    private final static int ROWS = 3;
     private final static int MAX_VALUE = 64;
     private final static int COLUMNS = 3;
     private void doAggregate(Aggregator.Op operation, int groupColumn)
