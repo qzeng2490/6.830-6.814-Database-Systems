@@ -123,6 +123,7 @@ public class HeapFile implements DbFile {
             HeapPage p =(HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
             if (p != null && p.getNumEmptySlots() > 0) {
                 p.insertTuple(t);
+//                writePage(p);
                 res.add(p);
                 return res;
             }
@@ -185,13 +186,16 @@ public class HeapFile implements DbFile {
             if(tupleIterator.hasNext()) {
                 tuple = tupleIterator.next();
             }else {
-                this.pageNo++;
-                HeapPageId heapPageId = new HeapPageId(this.heapFile.getId(),pageNo);
-                HeapPage p =(HeapPage) Database.getBufferPool().getPage(transactionId,heapPageId,Permissions.READ_ONLY);
-                if (p != null) {
-                    tupleIterator = p.iterator();
-                    tuple =tupleIterator.hasNext() ?tupleIterator.next(): null;
+                while (tuple == null && this.pageNo+1 < heapFile.numPages() ) {
+                    this.pageNo++;
+                    HeapPageId heapPageId = new HeapPageId(this.heapFile.getId(),pageNo);
+                    HeapPage p =(HeapPage) Database.getBufferPool().getPage(transactionId,heapPageId,Permissions.READ_ONLY);
+                    if (p != null) {
+                        tupleIterator = p.iterator();
+                        tuple =tupleIterator.hasNext() ?tupleIterator.next(): null;
+                    }
                 }
+
             }
             return tuple;
         }

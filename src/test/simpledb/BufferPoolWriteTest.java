@@ -42,6 +42,7 @@ public class BufferPoolWriteTest extends TestUtil.CreateHeapFile {
     			HeapPage p = new HeapPage(new HeapPageId(super.getId(), super.numPages() - 1), 
     					HeapPage.createEmptyPageData());
     	        p.insertTuple(t);
+				writePage(p);
     			dirtypages.add(p);
     		}
     		return dirtypages;
