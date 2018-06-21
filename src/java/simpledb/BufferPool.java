@@ -77,13 +77,14 @@ public class BufferPool {
         // some code goes here
         int tableId = pid.getTableId();
         Catalog catalog = Database.getCatalog();
-        Page p = catalog.getDatabaseFile(tableId).readPage(pid);
+
         if (this.buffer.containsKey(pid)) {
-            return p;
+            return this.buffer.get(pid);
         }
         if (this.buffer.size() == this.maxPages) {
             throw new DbException("buffer exceed maxSize");
         }
+        Page p = catalog.getDatabaseFile(tableId).readPage(pid);
         this.buffer.put(pid,p);
         return p;
     }
@@ -151,6 +152,8 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
+        dbFile.insertTuple(tid,t);
     }
 
     /**
@@ -170,6 +173,8 @@ public class BufferPool {
         throws DbException, IOException, TransactionAbortedException {
         // some code goes here
         // not necessary for lab1
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
+        dbFile.deleteTuple(tid,t);
     }
 
     /**

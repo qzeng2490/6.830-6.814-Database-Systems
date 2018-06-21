@@ -3,6 +3,8 @@ package simpledb;
 import java.util.*;
 import java.io.*;
 
+import static simpledb.Utility.compareTuples;
+
 /**
  * Each instance of HeapPage stores data for one page of HeapFiles and 
  * implements the Page interface that is used by BufferPool.
@@ -21,6 +23,9 @@ public class HeapPage implements Page {
 
     byte[] oldData;
     private final Byte oldDataLock=new Byte((byte)0);
+
+    private boolean dirty;
+    private TransactionId dirtyTid;
 
     /**
      * Create a HeapPage from a set of bytes of data read from disk.
@@ -249,6 +254,16 @@ public class HeapPage implements Page {
     public void deleteTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        boolean exist = false;
+        for (int i=0;i<tuples.length;i++) {
+            if (isSlotUsed(i) && compareTuples(t,tuples[i])) {
+                markSlotUsed(i,false);
+                tuples[i] = null;
+                exist = true;
+                break;
+            }
+        }
+//        if (!exist) throw new DbException("tuple is not on this page");
     }
 
     /**
@@ -261,6 +276,23 @@ public class HeapPage implements Page {
     public void insertTuple(Tuple t) throws DbException {
         // some code goes here
         // not necessary for lab1
+        if (getNumEmptySlots() == 0) throw new DbException("the page is full");
+        if (t.getTupleDesc().numFields() != td.numFields())
+            throw new DbException("tupledesc is mismatch");
+
+        for (int i = 0; i < t.getTupleDesc().numFields(); ++i) {
+            if (!(t.getTupleDesc().getFieldType(i).equals(td.getFieldType(i))))
+                throw new DbException("tupledesc is mismatch");
+        }
+
+        for (int i=0;i<tuples.length;i++) {
+            if (!isSlotUsed(i)) {
+                markSlotUsed(i,true);
+                tuples[i] = t;
+                t.setRecordId(new RecordId(pid, i));
+                break;
+            }
+        }
     }
 
     /**
@@ -270,6 +302,8 @@ public class HeapPage implements Page {
     public void markDirty(boolean dirty, TransactionId tid) {
         // some code goes here
 	// not necessary for lab1
+        this.dirty = dirty;
+        dirtyTid = tid;
     }
 
     /**
@@ -278,7 +312,7 @@ public class HeapPage implements Page {
     public TransactionId isDirty() {
         // some code goes here
 	// Not necessary for lab1
-        return null;      
+        return dirty ? dirtyTid:null;
     }
 
     /**
@@ -313,6 +347,12 @@ public class HeapPage implements Page {
     private void markSlotUsed(int i, boolean value) {
         // some code goes here
         // not necessary for lab1
+        byte v = value? (byte) (1 << (i % 8)) : (byte) ~(1<<(i%8));
+        if (value) {
+            this.header[i/8] = (byte) (this.header[i/8]|v);
+        } else {
+            this.header[i/8] = (byte) (this.header[i/8]&v);
+        }
     }
 
     /**

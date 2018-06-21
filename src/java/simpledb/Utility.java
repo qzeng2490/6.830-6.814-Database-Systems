@@ -15,6 +15,23 @@ public class Utility {
             types[i] = Type.INT_TYPE;
         return types;
     }
+    /**
+     * @return true iff the tuples have the same number of fields and
+     *   corresponding fields in the two Tuples are all equal.
+     */
+    public static boolean compareTuples(Tuple t1, Tuple t2) {
+        if (t1.getTupleDesc().numFields() != t2.getTupleDesc().numFields())
+            return false;
+
+        for (int i = 0; i < t1.getTupleDesc().numFields(); ++i) {
+            if (!(t1.getTupleDesc().getFieldType(i).equals(t2.getTupleDesc().getFieldType(i))))
+                return false;
+            if (!(t1.getField(i).equals(t2.getField(i))))
+                return false;
+        }
+
+        return true;
+    }
 
     /**
      * @return a String array of length len populated with the (possibly null) strings in val,

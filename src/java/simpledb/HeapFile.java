@@ -99,6 +99,10 @@ public class HeapFile implements DbFile {
     public void writePage(Page page) throws IOException {
         // some code goes here
         // not necessary for lab1
+        RandomAccessFile raf = new RandomAccessFile(this.file, "rw");
+        long offset = page.getId().getPageNumber() * BufferPool.getPageSize();
+        raf.seek(offset);
+        raf.write(page.getPageData(),0,BufferPool.getPageSize());
     }
 
     /**
@@ -113,16 +117,43 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+        ArrayList<Page> res = new ArrayList<>();
+        for (int pgNo =0;pgNo<numPages();pgNo++) {
+            HeapPageId heapPageId = new HeapPageId(this.getId(),pgNo);
+            HeapPage p =(HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
+            if (p != null && p.getNumEmptySlots() > 0) {
+                p.insertTuple(t);
+                res.add(p);
+                return res;
+            }
+        }
+        // 需要新增
+        HeapPageId heapPageId = new HeapPageId(this.getId(),numPages());
+        HeapPage p =new HeapPage(heapPageId,HeapPage.createEmptyPageData());
+        p.insertTuple(t);
+        writePage(p);
+        res.add(p);
+        return res;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+        ArrayList<Page> res = new ArrayList<>();
+        for (int pgNo =0;pgNo<numPages();pgNo++) {
+            HeapPageId heapPageId = new HeapPageId(this.getId(),pgNo);
+            HeapPage p =(HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
+            int previousEmpty = p.getNumEmptySlots();
+            if (p != null && previousEmpty < p.numSlots) {
+                p.deleteTuple(t);
+                if (previousEmpty - 1 == p.getNumEmptySlots()) {
+                    res.add(p);
+                }
+            }
+        }
+
+        return res;
     }
 
     // see DbFile.java for javadocs
