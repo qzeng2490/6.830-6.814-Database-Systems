@@ -66,25 +66,26 @@ public class IntHistogram {
         int index = (int) ((v - min) * N / (max - min+1));
         double left = (max-min+1)*index/N + min-1;
         double right = (max-min+1)*(index+1)/N + min-1;
-
+        double width = right -left < 1? 1: right-left;
         switch (op){
             case EQUALS:
-                res = buckets[index]/((right-left)*cnt);
+                res = buckets[index]/(width*cnt);
                 break;
             case LESS_THAN_OR_EQ:
-                res = getLess(index)/cnt + (v-left+1)*buckets[index]/((right-left)*cnt);
+                // 区间是(]左开右闭 会造成一点误差
+                res = getLess(index)/cnt + (v-left+1)*buckets[index]/(width*cnt);
                 break;
             case LESS_THAN:
-                res = getLess(index)/cnt + (v-left)*buckets[index]/((right-left)*cnt);
+                res = getLess(index)/cnt + (v-left)*buckets[index]/(width*cnt);
                 break;
             case GREATER_THAN:
-                res = getLarger(index)/cnt + (right-v)*buckets[index]/((right-left)*cnt);
+                res = getLarger(index)/cnt + (right-v)*buckets[index]/(width*cnt);
                 break;
             case GREATER_THAN_OR_EQ:
-                res = getLarger(index)/cnt + (right-v+1)*buckets[index]/((right-left)*cnt);
+                res = getLarger(index)/cnt + (right-v+1)*buckets[index]/(width*cnt);
                 break;
             case NOT_EQUALS:
-                res = 1 - buckets[index]/((right-left)*cnt);
+                res = 1 - buckets[index]/(width*cnt);
         }
 
         return res;

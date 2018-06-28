@@ -82,6 +82,8 @@ public interface DbFile {
      * @return an ID uniquely identifying this HeapFile.
      */
     public int getId();
+
+    public int numPages();
     
     /**
      * Returns the TupleDesc of the table stored in this DbFile.

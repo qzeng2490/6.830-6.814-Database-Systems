@@ -1,5 +1,6 @@
 package simpledb;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -17,6 +18,11 @@ public class TableStats {
 
     static final int IOCOSTPERPAGE = 1000;
 
+    private int tableid;
+    private int ioCostPerPage;
+    private int totalTuples;
+    private Object[] histgrams;
+    private TupleDesc tupleDesc;
     public static TableStats getTableStats(String tablename) {
         return statsMap.get(tablename);
     }
@@ -85,6 +91,53 @@ public class TableStats {
         // necessarily have to (for example) do everything
         // in a single scan of the table.
         // some code goes here
+        this.tableid = tableid;
+        this.ioCostPerPage = ioCostPerPage;
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);
+        tupleDesc = dbFile.getTupleDesc();
+        int n = tupleDesc.numFields();
+        int[] min = new int[n];
+        int[] max = new int[n];
+        Arrays.fill(min,Integer.MAX_VALUE);
+        Arrays.fill(max,Integer.MIN_VALUE);
+        histgrams = new Object[n];
+        DbFileIterator dbFileIterator = dbFile.iterator(new TransactionId());
+        try {
+            dbFileIterator.open();
+            while (dbFileIterator.hasNext()){
+                Tuple t = dbFileIterator.next();
+                totalTuples++;
+                for (int i=0;i<n;i++) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        min[i] = Math.min(min[i],((IntField)t.getField(i)).getValue());
+                        max[i] = Math.max(max[i],((IntField)t.getField(i)).getValue());
+                    }
+                }
+            }
+            dbFileIterator.rewind();
+            for (int i =0;i<n;i++) {
+                if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                    histgrams[i] = new IntHistogram(NUM_HIST_BINS,min[i],max[i]);
+                }else {
+                    histgrams[i] = new StringHistogram(NUM_HIST_BINS);
+                }
+            }
+
+            while (dbFileIterator.hasNext()){
+                Tuple t = dbFileIterator.next();
+                for (int i=0;i<n;i++) {
+                    if (tupleDesc.getFieldType(i) == Type.INT_TYPE) {
+                        ((IntHistogram)histgrams[i]).addValue(((IntField)t.getField(i)).getValue());
+                    } else {
+                        ((StringHistogram)histgrams[i]).addValue(((StringField)t.getField(i)).getValue());
+                    }
+                }
+            }
+        } catch (DbException e) {
+            e.printStackTrace();
+        } catch (TransactionAbortedException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -101,7 +154,8 @@ public class TableStats {
      */
     public double estimateScanCost() {
         // some code goes here
-        return 0;
+        DbFile dbFile = Database.getCatalog().getDatabaseFile(tableid);
+        return ioCostPerPage * dbFile.numPages();
     }
 
     /**
@@ -115,7 +169,7 @@ public class TableStats {
      */
     public int estimateTableCardinality(double selectivityFactor) {
         // some code goes here
-        return 0;
+        return (int) (totalTuples * selectivityFactor);
     }
 
     /**
@@ -130,6 +184,9 @@ public class TableStats {
      * */
     public double avgSelectivity(int field, Predicate.Op op) {
         // some code goes here
+//        if (tupleDesc.getFieldType(field) == Type.INT_TYPE) {
+//            IntHistogram intHistogram =(IntHistogram) histgrams[field];
+//        }
         return 1.0;
     }
 
@@ -148,7 +205,13 @@ public class TableStats {
      */
     public double estimateSelectivity(int field, Predicate.Op op, Field constant) {
         // some code goes here
-        return 1.0;
+        if (tupleDesc.getFieldType(field) == Type.INT_TYPE) {
+            IntHistogram intHistogram =(IntHistogram) histgrams[field];
+            return intHistogram.estimateSelectivity(op,((IntField)constant).getValue());
+        }else {
+            StringHistogram intHistogram =(StringHistogram) histgrams[field];
+            return intHistogram.estimateSelectivity(op,((StringField)constant).getValue());
+        }
     }
 
     /**
@@ -156,7 +219,7 @@ public class TableStats {
      * */
     public int totalTuples() {
         // some code goes here
-        return 0;
+        return totalTuples;
     }
 
 }
