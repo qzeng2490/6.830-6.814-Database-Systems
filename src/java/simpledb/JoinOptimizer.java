@@ -111,7 +111,7 @@ public class JoinOptimizer {
             // HINT: You may need to use the variable "j" if you implemented
             // a join algorithm that's more complicated than a basic
             // nested-loops join.
-            return -1.0;
+            return cost1 + cost2 + card1*card2;
         }
     }
 
@@ -157,6 +157,21 @@ public class JoinOptimizer {
             Map<String, Integer> tableAliasToId) {
         int card = 1;
         // some code goes here
+        if (joinOp == Predicate.Op.EQUALS) {
+            if (t1pkey) {
+                card = card1;
+            } else if (t2pkey) {
+                card = card2;
+            } else {
+                // For equality joins when there is no primary key
+                card = Math.max(card1,card2);
+            }
+        } else {
+            //For range scans
+            return (int) (card1*card2*0.3);
+        }
+
+
         return card <= 0 ? 1 : card;
     }
 
