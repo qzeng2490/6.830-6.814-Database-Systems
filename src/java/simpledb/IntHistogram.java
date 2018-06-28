@@ -4,6 +4,11 @@ package simpledb;
  */
 public class IntHistogram {
 
+    private int[] buckets;
+    private double min;
+    private double max;
+    private int cnt;
+
     /**
      * Create a new IntHistogram.
      * 
@@ -22,6 +27,10 @@ public class IntHistogram {
      */
     public IntHistogram(int buckets, int min, int max) {
     	// some code goes here
+        this.buckets = new int[buckets];
+        this.min = min;
+        this.max = max;
+        this.cnt = 0;
     }
 
     /**
@@ -30,6 +39,10 @@ public class IntHistogram {
      */
     public void addValue(int v) {
     	// some code goes here
+        int N = buckets.length;
+        int index = (int) ((v - min) * N / (max - min+1));
+        buckets[index]++;
+        cnt++;
     }
 
     /**
@@ -45,7 +58,71 @@ public class IntHistogram {
     public double estimateSelectivity(Predicate.Op op, int v) {
 
     	// some code goes here
-        return -1.0;
+        double res = 0;
+        int N = buckets.length;
+        if (v < min || v > max) {
+            return outBoundEstimate(op,v < min);
+        }
+        int index = (int) ((v - min) * N / (max - min+1));
+        double left = (max-min+1)*index/N + min-1;
+        double right = (max-min+1)*(index+1)/N + min-1;
+
+        switch (op){
+            case EQUALS:
+                res = buckets[index]/((right-left)*cnt);
+                break;
+            case LESS_THAN_OR_EQ:
+                res = getLess(index)/cnt + (v-left+1)*buckets[index]/((right-left)*cnt);
+                break;
+            case LESS_THAN:
+                res = getLess(index)/cnt + (v-left)*buckets[index]/((right-left)*cnt);
+                break;
+            case GREATER_THAN:
+                res = getLarger(index)/cnt + (right-v)*buckets[index]/((right-left)*cnt);
+                break;
+            case GREATER_THAN_OR_EQ:
+                res = getLarger(index)/cnt + (right-v+1)*buckets[index]/((right-left)*cnt);
+                break;
+            case NOT_EQUALS:
+                res = 1 - buckets[index]/((right-left)*cnt);
+        }
+
+        return res;
+    }
+
+    private double outBoundEstimate(Predicate.Op op,boolean outLeft) {
+        double res = 0;
+        switch (op){
+            case EQUALS:
+                res = 0;
+                break;
+            case LESS_THAN_OR_EQ:
+            case LESS_THAN:
+                res = outLeft?0:1;
+                break;
+            case GREATER_THAN:
+            case GREATER_THAN_OR_EQ:
+                res = outLeft ? 1:0;
+                break;
+            case NOT_EQUALS:
+                res = 1;
+        }
+        return res;
+    }
+
+    private double getLess(int index) {
+        double res = 0;
+        for (int i=0;i<index;i++) {
+            res = res + buckets[i];
+        }
+        return res;
+    }
+    private double getLarger(int index) {
+        double res = 0;
+        for (int i=index+1;i<buckets.length;i++) {
+            res = res + buckets[i];
+        }
+        return res;
     }
     
     /**
@@ -67,6 +144,14 @@ public class IntHistogram {
      */
     public String toString() {
         // some code goes here
-        return null;
+        String res = "";
+        int len = (int) ((max-min)/buckets.length);
+        for (int i=0;i<buckets.length;i++) {
+            res += "left: "+i*len;
+            res += "\tright: " + (i+1)*len;
+            res += "\theight(cnt): " + buckets[i];
+            res += "\n";
+        }
+        return res;
     }
 }
