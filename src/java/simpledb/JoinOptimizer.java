@@ -228,19 +228,45 @@ public class JoinOptimizer {
      *             when stats or filter selectivities is missing a table in the
      *             join, or or when another internal error occurs
      */
+//        1. j = set of join nodes
+//        2. for (i in 1...|j|):
+//        3.     for s in {all length i subsets of j}
+//        4.       bestPlan = {}
+//        5.       for s' in {all length d-1 subsets of s}
+//        6.            subplan = optjoin(s')
+//        7.            plan = best way to join (s-s') to subplan
+//        8.            if (cost(plan) < cost(bestPlan))
+//        9.               bestPlan = plan
+//        10.      optjoin(s) = bestPlan
+//        11. return optjoin(j)
     public Vector<LogicalJoinNode> orderJoins(
             HashMap<String, TableStats> stats,
             HashMap<String, Double> filterSelectivities, boolean explain)
             throws ParsingException {
         //Not necessary for labs 1--3
-
-        // some code goes here
-        //Replace the following
-        return joins;
+        PlanCache pc = new PlanCache();
+        HashMap<Integer,Vector<LogicalJoinNode>> bestCostPlan = new HashMap<>();
+        for (int i = 1;i<=joins.size();i++) {
+            for (Set<LogicalJoinNode> s: enumerateSubsets(joins,i)) {
+                double best = Double.MAX_VALUE;
+                for (LogicalJoinNode toRemove: s) {
+                    CostCard costCard = computeCostAndCardOfSubplan(stats,filterSelectivities,toRemove,s,best,pc);
+                    if(costCard != null && costCard.cost < best) {
+                        best = costCard.cost;
+                        pc.addPlan(s,best,costCard.card,costCard.plan);
+                        bestCostPlan.put(i,costCard.plan);
+                    }
+                }
+            }
+        }
+        if (explain) {
+            printJoins(bestCostPlan.get(joins.size()),pc,stats,filterSelectivities);
+        }
+        return bestCostPlan.get(joins.size());
     }
 
     // ===================== Private Methods =================================
-
+    // line 6 -- 8
     /**
      * This is a helper method that computes the cost and cardinality of joining
      * joinToRemove to joinSet (joinSet should contain joinToRemove), given that
