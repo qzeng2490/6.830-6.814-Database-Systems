@@ -120,19 +120,24 @@ public class HeapFile implements DbFile {
         ArrayList<Page> res = new ArrayList<>();
         for (int pgNo =0;pgNo<numPages();pgNo++) {
             HeapPageId heapPageId = new HeapPageId(this.getId(),pgNo);
-            HeapPage p =(HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
+            HeapPage p =(HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_ONLY);
             if (p != null && p.getNumEmptySlots() > 0) {
+                TransactionLockMap.releasePage(tid,heapPageId);
+                p = (HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
                 p.insertTuple(t);
 //                writePage(p);
                 res.add(p);
                 return res;
             }
+            TransactionLockMap.releasePage(tid,heapPageId);
         }
         // 需要新增
         HeapPageId heapPageId = new HeapPageId(this.getId(),numPages());
         HeapPage p =new HeapPage(heapPageId,HeapPage.createEmptyPageData());
         p.insertTuple(t);
+        TransactionLockMap.dbFileLock(tid,this);
         writePage(p);
+        TransactionLockMap.releaseDbFile(tid,this);
         res.add(p);
         return res;
     }

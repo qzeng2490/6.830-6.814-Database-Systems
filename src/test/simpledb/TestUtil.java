@@ -333,8 +333,11 @@ public class TestUtil {
 
         public void run() {
             try {
+                System.out.println("In LockGrabber. run start ");
                 Database.getBufferPool().getPage(tid, pid, perm);
+                System.out.println("In LockGrabber. after  Database.getBufferPool().getPage");
                 synchronized(alock) {
+                    System.out.println("acquired = true");
                     acquired = true;
                 }
             } catch (Exception e) {

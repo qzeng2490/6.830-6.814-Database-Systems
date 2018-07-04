@@ -3,9 +3,7 @@ package simpledb;
 import java.awt.print.Paper;
 import java.io.*;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -79,7 +77,11 @@ public class BufferPool {
         // some code goes here
         int tableId = pid.getTableId();
         Catalog catalog = Database.getCatalog();
-
+        if (perm.equals(Permissions.READ_ONLY)) {
+            TransactionLockMap.shareLock(tid,pid);
+        }else if (perm.equals(Permissions.READ_WRITE)) {
+            TransactionLockMap.exclusiveLock(tid,pid);
+        }
         if (buffer.containsKey(pid)) {
             Page p = buffer.get(pid);
             buffer.remove(pid);
@@ -107,6 +109,7 @@ public class BufferPool {
     public  void releasePage(TransactionId tid, PageId pid) {
         // some code goes here
         // not necessary for lab1|lab2
+        TransactionLockMap.releasePage(tid,pid);
     }
 
     /**
@@ -117,13 +120,16 @@ public class BufferPool {
     public void transactionComplete(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+
+        // release all locks
+        transactionComplete(tid,true);
     }
 
     /** Return true if the specified transaction has a lock on the specified page */
     public boolean holdsLock(TransactionId tid, PageId p) {
         // some code goes here
         // not necessary for lab1|lab2
-        return false;
+        return TransactionLockMap.holdsLock(tid,p);
     }
 
     /**
@@ -137,6 +143,21 @@ public class BufferPool {
         throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        if (commit) {
+            flushPages(tid);
+        }else {
+            // abort reload dirty pages from disk
+            Iterator<Map.Entry<PageId, Page>> iterator = buffer.entrySet().iterator();
+            if (iterator.hasNext()) {
+                Map.Entry<PageId, Page> entry = iterator.next();
+                if (entry.getValue().isDirty() != null) {
+                    PageId pageId = entry.getKey();
+                    Page page = Database.getCatalog().getDatabaseFile(pageId.getTableId()).readPage(pageId);
+                    buffer.put(pageId,page);
+                }
+            }
+        }
+        TransactionLockMap.transactionComplete(tid);
     }
 
     /**
@@ -159,7 +180,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile dbFile = Database.getCatalog().getDatabaseFile(tableId);
-        dbFile.insertTuple(tid,t);
+        ArrayList<Page> res = dbFile.insertTuple(tid,t);
+        for (Page p : res) {
+            p.markDirty(true,tid);
+        }
     }
 
     /**
@@ -180,7 +204,10 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         DbFile dbFile = Database.getCatalog().getDatabaseFile(t.getRecordId().getPageId().getTableId());
-        dbFile.deleteTuple(tid,t);
+        ArrayList<Page> res =dbFile.deleteTuple(tid,t);
+        for (Page p : res) {
+            p.markDirty(true,tid);
+        }
     }
 
     /**
@@ -230,6 +257,11 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        Iterator<PageId> iterator= TransactionLockMap.getTransactionIdSetMap().get(tid).iterator();
+        while (iterator.hasNext()){
+            PageId pageId = iterator.next();
+            flushPage(pageId);
+        }
     }
 
     /**
@@ -239,13 +271,25 @@ public class BufferPool {
     private synchronized  void evictPage() throws DbException {
         // some code goes here
         // not necessary for lab1
-        Map.Entry<PageId, Page> entry = buffer.entrySet().iterator().next();
+        Map.Entry<PageId, Page> res = null;
+        Iterator<Map.Entry<PageId, Page>> iterator = buffer.entrySet().iterator();
         try {
-            flushPage(entry.getKey());
+            while (iterator.hasNext()) {
+                Map.Entry<PageId, Page> entry = iterator.next();
+                if (entry.getValue().isDirty() == null) {
+                    res = entry;
+                    flushPage(entry.getKey());
+                    break;
+                }
+            }
+
         } catch (IOException e) {
             e.printStackTrace();
         }
-        discardPage(entry.getKey());
+        if (res == null) {
+            throw new DbException("All pages are dirty");
+        }
+        discardPage(res.getKey());
     }
 
 }
