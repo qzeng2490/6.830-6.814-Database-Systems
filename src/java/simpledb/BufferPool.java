@@ -148,7 +148,7 @@ public class BufferPool {
         }else {
             // abort reload dirty pages from disk
             Iterator<Map.Entry<PageId, Page>> iterator = buffer.entrySet().iterator();
-            if (iterator.hasNext()) {
+            while (iterator.hasNext()) {
                 Map.Entry<PageId, Page> entry = iterator.next();
                 if (entry.getValue().isDirty() != null) {
                     PageId pageId = entry.getKey();
@@ -245,7 +245,7 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         Page p = buffer.get(pid);
-        if (p.isDirty() != null) {
+        if (p != null && p.isDirty() != null) {
             p.markDirty(false,new TransactionId());
             Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(p);
         }

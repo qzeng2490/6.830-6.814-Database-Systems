@@ -134,10 +134,12 @@ public class HeapFile implements DbFile {
         // 需要新增
         HeapPageId heapPageId = new HeapPageId(this.getId(),numPages());
         HeapPage p =new HeapPage(heapPageId,HeapPage.createEmptyPageData());
-        p.insertTuple(t);
         TransactionLockMap.dbFileLock(tid,this);
         writePage(p);
         TransactionLockMap.releaseDbFile(tid,this);
+        // 加入到buffer pool 中
+        p = (HeapPage) Database.getBufferPool().getPage(tid,heapPageId,Permissions.READ_WRITE);
+        p.insertTuple(t);
         res.add(p);
         return res;
     }
