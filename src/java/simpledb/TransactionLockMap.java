@@ -34,7 +34,7 @@ public class TransactionLockMap {
 //            System.out.println("l.getWriteHoldCount(): "+l.getWriteHoldCount());
             if (pageIdSetMap.containsKey(pageId) && pageIdSetMap.get(pageId).size() == 1
                     && pageIdSetMap.get(pageId).iterator().next().equals(tid) && l.isWriteLocked()) {
-                // 不要加读锁了  因为只有一个tid对它加了写锁
+                // 不要加读锁了  因为当前tid对它加了写锁
             }else {
                 l.readLock().lock();
             }
@@ -55,8 +55,10 @@ public class TransactionLockMap {
                     && pageIdSetMap.get(pageId).iterator().next().equals(tid) && !l.isWriteLocked()
                     && l.getReadLockCount() > 0) {
                 System.out.println("upgrade Read Lock");
-//                l.readLock().unlock();
+                pageIdReentrantReadWriteLockMap.put(pageId,new ReentrantReadWriteLock());
+
             }
+            l = pageIdReentrantReadWriteLockMap.get(pageId);
             l.writeLock().lock();
         }finally {
             lock.unlock();

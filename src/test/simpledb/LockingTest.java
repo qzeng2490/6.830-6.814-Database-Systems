@@ -104,6 +104,7 @@ public class LockingTest extends TestUtil.CreateHeapFile {
    * Acquires two read locks on the same page.
    */
   @Test public void acquireReadLocksOnSamePage() throws Exception {
+    System.out.println("-------------");
     metaLockTester(tid1, p0, Permissions.READ_ONLY,
                    tid2, p0, Permissions.READ_ONLY, true);
   }
@@ -157,13 +158,13 @@ public class LockingTest extends TestUtil.CreateHeapFile {
    * Unit test for BufferPool.getPage() assuming locking.
    * Attempt lock upgrade.
    */
-//  @Test public void lockUpgrade() throws Exception {
-//
-//    metaLockTester(tid1, p0, Permissions.READ_ONLY,
-//                   tid1, p0, Permissions.READ_WRITE, true);
-//    metaLockTester(tid2, p1, Permissions.READ_ONLY,
-//                   tid2, p1, Permissions.READ_WRITE, true);
-//  }
+  @Test public void lockUpgrade() throws Exception {
+
+    metaLockTester(tid1, p0, Permissions.READ_ONLY,
+                   tid1, p0, Permissions.READ_WRITE, true);
+    metaLockTester(tid2, p1, Permissions.READ_ONLY,
+                   tid2, p1, Permissions.READ_WRITE, true);
+  }
 
   /**
    * Unit test for BufferPool.getPage() assuming locking.
