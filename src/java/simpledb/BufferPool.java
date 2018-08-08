@@ -257,6 +257,9 @@ public class BufferPool {
     public synchronized  void flushPages(TransactionId tid) throws IOException {
         // some code goes here
         // not necessary for lab1|lab2
+        if(!TransactionLockMap.getTransactionIdSetMap().containsKey(tid)) {
+            return;
+        }
         Iterator<PageId> iterator= TransactionLockMap.getTransactionIdSetMap().get(tid).iterator();
         while (iterator.hasNext()){
             PageId pageId = iterator.next();

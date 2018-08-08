@@ -194,8 +194,34 @@ public class BTreeFile implements DbFile {
 	private BTreeLeafPage findLeafPage(TransactionId tid, HashMap<PageId, Page> dirtypages, BTreePageId pid, Permissions perm,
 			Field f) 
 					throws DbException, TransactionAbortedException {
-		// some code goes here
-        return null;
+
+		if (pid.pgcateg() == BTreePageId.LEAF) {
+			return (BTreeLeafPage) getPage(tid,dirtypages,pid,perm);
+		}
+		BTreePageId leftPid = null;
+		if (null == f) {
+			BTreeInternalPage internalPage = (BTreeInternalPage) getPage(tid,dirtypages,pid,Permissions.READ_ONLY);
+			leftPid = internalPage.iterator().next().getLeftChild();
+		} else {
+			BTreeInternalPage internalPage = (BTreeInternalPage) getPage(tid,dirtypages,pid,Permissions.READ_ONLY);
+			Iterator<BTreeEntry> iterator = internalPage.iterator();
+			BTreeEntry bTreeEntry = null;
+			while (iterator.hasNext() ) {
+				bTreeEntry = iterator.next();
+				if (bTreeEntry.getKey().compare(Op.LESS_THAN,f)) {
+					continue;
+				}else {
+					break;
+				}
+			}
+			if (!iterator.hasNext() && bTreeEntry.getKey().compare(Op.LESS_THAN,f)) {
+				leftPid = bTreeEntry.getRightChild();
+			} else {
+				leftPid = bTreeEntry.getLeftChild();
+			}
+		}
+
+		return findLeafPage(tid,dirtypages,leftPid,perm,f);
 	}
 	
 	/**
