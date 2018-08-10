@@ -277,7 +277,7 @@ public class BTreeFile implements DbFile {
 		int numElements = page.getNumTuples();
 		int toMoveLeft = numElements/2;
 
-		Iterator<Tuple> iterator= page.iterator();
+		Iterator<Tuple> iterator= page.reverseIterator();
 		// iterator.hasNext() should always be true
 		while (toMoveLeft > 0 && iterator.hasNext()) {
 			Tuple t = iterator.next();
@@ -285,28 +285,30 @@ public class BTreeFile implements DbFile {
 			newLeaf.insertTuple(t);
 			toMoveLeft--;
 		}
-		BTreeLeafPage prePage = page.getLeftSiblingId() == null? null: (BTreeLeafPage) getPage(tid,dirtypages,page.getLeftSiblingId(),Permissions.READ_WRITE);
 		BTreeLeafPage nextPage = page.getRightSiblingId() == null? null: (BTreeLeafPage) getPage(tid,dirtypages,page.getRightSiblingId(),Permissions.READ_WRITE);
 
-		newLeaf.setLeftSiblingId(page.getLeftSiblingId());
-		if (prePage != null) prePage.setRightSiblingId(newLeaf.pid);
-		newLeaf.setRightSiblingId(page.pid);
-		page.setLeftSiblingId(newLeaf.pid);
+		newLeaf.setLeftSiblingId(page.pid);
+		page.setRightSiblingId(newLeaf.pid);
+
+		if (nextPage != null) {
+			newLeaf.setRightSiblingId(nextPage.pid);
+			nextPage.setLeftSiblingId(newLeaf.pid);
+		}
 
 		dirtypages.put(newLeaf.pid,newLeaf);
 		dirtypages.put(page.pid,page);
-		if (prePage != null) dirtypages.put(prePage.pid,prePage);
+
 		if (nextPage != null) dirtypages.put(nextPage.pid,nextPage);
 
 		Field mid = iterator.next().getField(page.keyField);
-		BTreeEntry bTreeEntry = new BTreeEntry(mid,newLeaf.pid,page.pid);
+		BTreeEntry bTreeEntry = new BTreeEntry(mid,page.pid,newLeaf.pid);
 		BTreeInternalPage internalPage = getParentWithEmptySlots(tid,dirtypages,page.getParentId(),mid);
 		internalPage.insertEntry(bTreeEntry);
 		dirtypages.put(internalPage.pid,internalPage);
-		updateParentPointers(tid,dirtypages,internalPage);
-//		updateParentPointer(tid,dirtypages,internalPage.pid,newLeaf.pid);
-//		updateParentPointer(tid,dirtypages,internalPage.pid,page.pid);
-        return mid.compare(Op.LESS_THAN_OR_EQ,field) ? page:newLeaf;
+
+		updateParentPointer(tid,dirtypages,internalPage.pid,page.pid);
+		updateParentPointer(tid,dirtypages,internalPage.pid,newLeaf.pid);
+        return mid.compare(Op.LESS_THAN,field) ? newLeaf:page;
 		
 	}
 	
@@ -348,7 +350,7 @@ public class BTreeFile implements DbFile {
 		int numElements = page.getNumEntries();
 		int toMoveLeft = numElements/2;
 
-		Iterator<BTreeEntry> iterator= page.iterator();
+		Iterator<BTreeEntry> iterator= page.reverseIterator();
 		// iterator.hasNext() should always be true
 		while (toMoveLeft > 0 && iterator.hasNext()) {
 			BTreeEntry entry = iterator.next();
@@ -363,14 +365,16 @@ public class BTreeFile implements DbFile {
 		BTreeEntry mid = iterator.next();
 		page.deleteKeyAndRightChild(mid);
 
-		mid.setLeftChild(newInternal.pid);
-		mid.setRightChild(page.pid);
+		mid.setRightChild(newInternal.pid);
+		mid.setLeftChild(page.pid);
+		updateParentPointers(tid,dirtypages,newInternal);
 
 		BTreeInternalPage internalPage = getParentWithEmptySlots(tid,dirtypages,page.getParentId(),mid.getKey());
 		internalPage.insertEntry(mid);
 		dirtypages.put(internalPage.pid,internalPage);
+
 		updateParentPointers(tid,dirtypages,internalPage);
-		return mid.getKey().compare(Op.LESS_THAN_OR_EQ,field) ? page: newInternal;
+		return mid.getKey().compare(Op.LESS_THAN,field) ? newInternal: page;
 	}
 	
 	/**
