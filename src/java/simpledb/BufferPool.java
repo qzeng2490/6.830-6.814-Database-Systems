@@ -245,6 +245,12 @@ public class BufferPool {
         // some code goes here
         // not necessary for lab1
         Page p = buffer.get(pid);
+        TransactionId dirtier = p.isDirty();
+        if (dirtier != null){
+            Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p);
+            Database.getLogFile().force();
+        }
+
         if (p != null && p.isDirty() != null) {
             p.markDirty(false,new TransactionId());
             Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(p);
@@ -264,6 +270,15 @@ public class BufferPool {
         while (iterator.hasNext()){
             PageId pageId = iterator.next();
             flushPage(pageId);
+            // use current page contents as the before-image
+            // for the next transaction that modifies this page.
+            try {
+                getPage(tid,pageId,Permissions.READ_WRITE).setBeforeImage();
+            } catch (TransactionAbortedException e) {
+                e.printStackTrace();
+            } catch (DbException e) {
+                e.printStackTrace();
+            }
         }
     }
 

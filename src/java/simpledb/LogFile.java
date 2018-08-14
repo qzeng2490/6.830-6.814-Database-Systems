@@ -317,6 +317,11 @@ public class LogFile {
     }
 
     /** Checkpoint the log and write a checkpoint record. */
+//    CHECKPOINT records consist of active transactions at the time
+//    the checkpoint was taken and their first log record on disk.  The format
+//    of the record is an integer count of the number of transactions, as well
+//    as a long integer transaction id and a long integer first record offset
+//    for each active transaction.
     public void logCheckpoint() throws IOException {
         //make sure we have buffer pool lock before proceeding
         synchronized (Database.getBufferPool()) {
