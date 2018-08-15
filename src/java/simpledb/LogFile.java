@@ -156,6 +156,7 @@ public class LogFile {
 
                 // must do this here, since rollback only works for
                 // live transactions (needs tidToFirstLogRecord)
+                print();
                 rollback(tid);
 
                 raf.writeInt(ABORT_RECORD);
@@ -472,6 +473,40 @@ public class LogFile {
             synchronized(this) {
                 preAppend();
                 // some code goes here
+                HashSet set = new HashSet<PageId>();
+                long tStart = tidToFirstLogRecord.get(tid.getId());
+                raf.seek(tStart);
+//                if (tStart == 0) raf.readLong();
+                while (true) {
+                    try {
+                        int type = raf.readInt();
+                        long record_tid = raf.readLong();
+                        switch (type) {
+                            case UPDATE_RECORD:
+                                Page before = readPageData(raf);
+                                readPageData(raf);
+                                PageId pid = before.getId();
+                                if (record_tid == tid.getId() && !set.contains(pid)) {
+                                    Database.getBufferPool().discardPage(pid);
+                                    set.add(pid);
+                                    Database.getCatalog().getDatabaseFile(pid.getTableId()).writePage(before);
+                                }
+
+                                break;
+                            case CHECKPOINT_RECORD:
+                                int numXactions = raf.readInt();
+                                while (numXactions-- > 0) {
+                                    raf.readLong();
+                                    raf.readLong();
+                                }
+                                break;
+                        }
+                        //all xactions finish with a pointer
+                        raf.readLong();
+                    } catch (EOFException e) {
+                        break;
+                    }
+                }
             }
         }
     }
@@ -499,6 +534,7 @@ public class LogFile {
             synchronized (this) {
                 recoveryUndecided = false;
                 // some code goes here
+
             }
          }
     }
@@ -506,6 +542,62 @@ public class LogFile {
     /** Print out a human readable represenation of the log */
     public void print() throws IOException {
         // some code goes here
+        raf.seek(0);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(raf.readLong()+"\t");
+        while (true) {
+            try {
+                int type = raf.readInt();
+                long record_tid = raf.readLong();
+
+                switch (type) {
+                    case UPDATE_RECORD:
+                        sb.append("UPDATE_RECORD"+"\t");
+                        sb.append(record_tid+"\t");
+                        readPageData(raf);
+                        readPageData(raf);
+
+                        raf.readLong();
+                        sb.append("END_UPDATE"+"\t");
+                        break;
+                    case CHECKPOINT_RECORD:
+                        sb.append("CHECKPOINT_RECORD"+"\t");
+                        sb.append(record_tid+"\t");
+                        int numXactions = raf.readInt();
+                        while (numXactions-- > 0) {
+                            raf.readLong();
+                            raf.readLong();
+
+                        }
+                        raf.readLong();
+                        sb.append("END_CHECKPOINT"+"\t");
+                        break;
+                    case BEGIN_RECORD:
+                        sb.append("BEGIN_RECORD"+"\t");
+                        sb.append(record_tid+"\t");
+                        raf.readLong();
+                        sb.append("END_BEGIN"+"\t");
+                        break;
+                    case ABORT_RECORD:
+                        sb.append("ABORT_RECORD"+"\t");
+                        sb.append(record_tid+"\t");
+                        raf.readLong();
+                        sb.append("END_ABORT"+"\t");
+                        break;
+                    case COMMIT_RECORD:
+                        sb.append("COMMIT_RECORD"+"\t");
+                        sb.append(record_tid+"\t");
+                        raf.readLong();
+                        sb.append("END_COMMIT"+"\t");
+                        break;
+                }
+
+            } catch (EOFException e) {
+                System.out.println(sb);
+                break;
+            }
+        }
     }
 
     public  synchronized void force() throws IOException {
