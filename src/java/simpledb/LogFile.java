@@ -476,7 +476,6 @@ public class LogFile {
                 HashSet set = new HashSet<PageId>();
                 long tStart = tidToFirstLogRecord.get(tid.getId());
                 raf.seek(tStart);
-//                if (tStart == 0) raf.readLong();
                 while (true) {
                     try {
                         int type = raf.readInt();
@@ -530,10 +529,63 @@ public class LogFile {
         updates of uncommitted transactions are not installed.
     */
     public void recover() throws IOException {
+        Database.getLogFile().print();
+        raf.seek(0);
         synchronized (Database.getBufferPool()) {
             synchronized (this) {
                 recoveryUndecided = false;
                 // some code goes here
+                HashSet<Long> commited = new HashSet<>();
+                // tid -> page  前提是每个transaction只改变了一个页, 按照测试用例简化了实现
+                HashMap<Long,Page> beforePages = new HashMap<>();
+                HashMap<Long,Page> afterPages = new HashMap<>();
+                long checkpoint = raf.readLong();
+                if (checkpoint != -1) {
+                    raf.seek(checkpoint);
+                }
+                while (true) {
+                    try {
+                        int type = raf.readInt();
+                        long record_tid = raf.readLong();
+                        switch (type) {
+                            case UPDATE_RECORD:
+                                Page before = readPageData(raf);
+                                Page after = readPageData(raf);
+                                if (!beforePages.containsKey(record_tid)) {
+                                    beforePages.put(record_tid,before);
+                                }
+                                afterPages.put(record_tid,after);
+                                break;
+                            case CHECKPOINT_RECORD:
+                                int numXactions = raf.readInt();
+                                while (numXactions-- > 0) {
+                                    raf.readLong();
+                                    raf.readLong();
+                                }
+                                break;
+                            case COMMIT_RECORD:
+                                commited.add(record_tid);
+                                break;
+                        }
+                        //all xactions finish with a pointer
+                        raf.readLong();
+                    } catch (EOFException e) {
+                        break;
+                    }
+                }
+
+                for (long tid: commited) {
+                    if (afterPages.containsKey(tid)) {
+                        Page p = afterPages.get(tid);
+                        Database.getCatalog().getDatabaseFile(p.getId().getTableId()).writePage(p);
+                    }
+                }
+                for (long tid: beforePages.keySet()) {
+                    if (!commited.contains(tid)) {
+                        Page p = beforePages.get(tid);
+                        Database.getCatalog().getDatabaseFile(p.getId().getTableId()).writePage(p);
+                    }
+                }
 
             }
          }
@@ -545,7 +597,7 @@ public class LogFile {
         raf.seek(0);
 
         StringBuilder sb = new StringBuilder();
-        sb.append(raf.readLong()+"\t");
+        sb.append(raf.readLong()+"\n");
         while (true) {
             try {
                 int type = raf.readInt();
@@ -559,7 +611,7 @@ public class LogFile {
                         readPageData(raf);
 
                         raf.readLong();
-                        sb.append("END_UPDATE"+"\t");
+                        sb.append("END_UPDATE"+"\n");
                         break;
                     case CHECKPOINT_RECORD:
                         sb.append("CHECKPOINT_RECORD"+"\t");
@@ -571,25 +623,25 @@ public class LogFile {
 
                         }
                         raf.readLong();
-                        sb.append("END_CHECKPOINT"+"\t");
+                        sb.append("END_CHECKPOINT"+"\n");
                         break;
                     case BEGIN_RECORD:
                         sb.append("BEGIN_RECORD"+"\t");
                         sb.append(record_tid+"\t");
                         raf.readLong();
-                        sb.append("END_BEGIN"+"\t");
+                        sb.append("END_BEGIN"+"\n");
                         break;
                     case ABORT_RECORD:
                         sb.append("ABORT_RECORD"+"\t");
                         sb.append(record_tid+"\t");
                         raf.readLong();
-                        sb.append("END_ABORT"+"\t");
+                        sb.append("END_ABORT"+"\n");
                         break;
                     case COMMIT_RECORD:
                         sb.append("COMMIT_RECORD"+"\t");
                         sb.append(record_tid+"\t");
                         raf.readLong();
-                        sb.append("END_COMMIT"+"\t");
+                        sb.append("END_COMMIT"+"\n");
                         break;
                 }
 
